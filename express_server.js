@@ -5,9 +5,7 @@ const PORT = 8080; // default port 8080
 const bodyParser = require("body-parser");
 app.use(bodyParser.urlencoded({extended: true}));
 
-function generateRandomString() {
-  const mark = Math.random().toString(36).substr(2, 6)
-}
+
 
 //Set the view engine to ejs
 app.set("view engine", 'ejs');
@@ -42,14 +40,29 @@ app.get("/urls/:shortURL", (req, res) => {
   const shorturl_name = req.params.shortURL
   const templateVars = { shortURL: req.params.shortURL, longURL: urlDatabase[shorturl_name]};
   res.render("urls_show", templateVars);
+
 });
 
-
+app.get("/u/:shortURL", (req, res) => {
+  const longURL =  urlDatabase[req.params.shortURL]
+  res.redirect(longURL);
+});
 
 app.post("/urls", (req, res) => {
   console.log(req.body);  // Log the POST request body to the console
-  res.send("Ok");         // Respond with 'Ok' (we will replace this)
+  let shortURL = Math.random().toString(36).substr(2, 6)
+  urlDatabase[shortURL] = req.body["longURL"]
+  res.redirect(`/urls/${shortURL}`);         // Respond with 'Ok' (we will replace this)
 });
+
+app.post("/urls/:shortURL/delete", (req, res) => {
+  console.log(urlDatabase["shortURL"])
+  
+  delete urlDatabase[req.params.shortURL]
+  res.redirect("/urls")
+}
+
+) 
 
 app.listen(PORT, () => {
   console.log(`App listening on port ${PORT}!`);
