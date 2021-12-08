@@ -17,6 +17,19 @@ const urlDatabase = {
   "9sm5xK": "http://www.google.com"
 };
 
+const users = { 
+  "test": {
+    id: "test", 
+    email: "123@test.com", 
+    password: "123"
+  },
+ "user2RandomID": {
+    id: "user2RandomID", 
+    email: "user2@example.com", 
+    password: "dishwasher-funk"
+  }
+}
+
 app.get("/", (req, res) => {
   res.send("Hello!");
 });
@@ -81,7 +94,20 @@ app.post("/logout", (req, res) => {
   res.redirect("/urls")
 })
 
+// Authentication Routes
 
+app.get("/register", (req, res) => {
+  //render the register form
+  const templateVars = {username: req.cookies["username"]};
+  res.render("register", templateVars)
+})
+
+app.post("/register", (req, res) => {
+  
+  res.redirect("/urls")
+}
+
+)
 
 
 app.listen(PORT, () => {
