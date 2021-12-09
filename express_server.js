@@ -7,15 +7,30 @@ const cookieParser = require("cookie-parser");
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(cookieParser())
 
-
+//app.use(cookieSession())
 
 //Set the view engine to ejs
 app.set("view engine", 'ejs');
 
+// const urlDatabase = {
+//   "b2xVn2": "http://www.lighthouselabs.ca",
+//   "9sm5xK": "http://www.google.com"
+// };
+
 const urlDatabase = {
-  "b2xVn2": "http://www.lighthouselabs.ca",
-  "9sm5xK": "http://www.google.com"
+  
 };
+
+// This function will push all the URLS that match a user has into the array userUrls
+const userUrlFilter = function (id){
+  let userUrls = []
+  for (const url in urlDatabase) {
+    if (urlDatabase[url].user_id === id){
+      userUrls.push(urlDatabase[url])
+    }
+  }
+  return userUrls
+}
 
 const userDatabase = {
   "test": {
@@ -26,7 +41,7 @@ const userDatabase = {
   },
   "user2RandomID": {
     id: "user2RandomID",
-    name: "John",
+    name: "Jack",
     email: "user2@example.com",
     password: "dishwasher-funk"
   }
@@ -34,6 +49,13 @@ const userDatabase = {
 
 app.get("/", (req, res) => {
   res.redirect("/login");
+});
+
+app.get("/home", (req, res) => {
+  const user_id = req.cookies["user_id"]
+  const user = userDatabase[user_id]
+  const templateVars = { urls: urlDatabase, user: user, userId: user_id };
+  res.render ("home", templateVars);
 });
 
 app.get("/urls.json", (req, res) => {
@@ -45,12 +67,25 @@ app.get("/hello", (req, res) => {
 });
 
 app.get("/urls", (req, res) => {
+  
+  
+  
   const user_id = req.cookies["user_id"]
+  const userUrlList = userUrlFilter(user_id)
   const user = userDatabase[user_id]
+  
+  
+  
+  
+  
   console.log(user)
-  const templateVars = { urls: urlDatabase, user: user, userId: user_id }; // Can remove userId. This is a security concern. You do not want your user to know their own UserId.
-
-  res.render("urls_index", templateVars);
+  const templateVars = { urls: userUrlList, user: user, userId: user_id }; // Can remove userId. This is a security concern. You do not want your user to know their own UserId.
+  if (user_id){
+    res.render("urls_index", templateVars);
+  }
+  else {
+    res.redirect("/home")
+  }
 });
 
 app.get("/urls/new", (req, res) => {
@@ -59,30 +94,75 @@ app.get("/urls/new", (req, res) => {
   const user = userDatabase[user_id]
   console.log(user)
   const templateVars = { user: user, userId: user_id };
-
-  res.render("urls_new", templateVars);
+  
+  if (user_id){
+    res.render("urls_new", templateVars);
+  }
+  else {
+    res.redirect("/home")
+  }
+  
 });
 
 app.get("/urls/:shortURL", (req, res) => {
-  const user_id = req.cookies["user_id"]
+  // const user_id = req.cookies["user_id"]
+  // const user = userDatabase[user_id]
+  // const shorturl_name = req.params.shortURL
+  // console.log(user)
+
+
+
+  const { user_id } = req.cookies  
+  if (!user_id){
+    return res.status(400).send("400 - You need to log in to access this page")
+  }
+
   const user = userDatabase[user_id]
-  const shorturl_name = req.params.shortURL
-  console.log(user)
-  const templateVars = { shortURL: req.params.shortURL, longURL: urlDatabase[shorturl_name], user: user, userId: user_id };
+  if(!user){
+    return res.status(400).send("400 - Not valid user")
+  }
+
+  const {shortURL} = req.params   // = 58c9ex 
+  const urlObject = urlDatabase[shortURL]
+  if (!urlObject){
+    return res.status(400).send("400 - Sorry, there is no URL object")
+  }
+
+  const urlBelongsToUser = urlObject.user_id === user.id 
+  if (!urlBelongsToUser){
+    return res.status(400).send("400 - You do not own this URL")
+  }
+
+  const templateVars = { 
+    shortURL: shortURL, 
+    longURL: urlObject.longURL, 
+    user: user 
+  };
   res.render("urls_show", templateVars);
 
 });
 
 app.get("/u/:shortURL", (req, res) => {
-  const longURL = urlDatabase[req.params.shortURL]
+  const longURL = urlDatabase[req.params.shortURL].longURL;
   res.redirect(longURL);
 });
 
 app.post("/urls", (req, res) => {
+  const user_id = req.cookies["user_id"]
   console.log(req.body);  // Log the POST request body to the console
   let shortURL = Math.random().toString(36).substr(2, 6)
 
-  urlDatabase[shortURL] = req.body["longURL"]
+  const {longURL} = req.body;
+  if (!longURL){
+    return res.status(400).send("400 - Sorry, there is no longURL")
+  }
+
+  urlDatabase[shortURL] = {
+    longURL: longURL, 
+    shortURL: shortURL,
+    user_id: user_id
+  };
+  console.log("url Database", urlDatabase)
   res.redirect(`/urls/${shortURL}`);         // Respond with 'Ok' (we will replace this)
 });
 
@@ -93,10 +173,52 @@ app.post("/urls/:shortURL/delete", (req, res) => {
 
 
 app.post("/urls/:shortURL/edit", (req, res) => {
-  urlDatabase[req.params.shortURL] = req.body["longURL"]
-  console.log(urlDatabase)
+  
+  const { user_id } = req.cookies 
+  if (!user_id){
+    return res.status(400).send("400 - You need to log in to access this page")
+  }
+
+  const user = userDatabase[user_id]
+  if(!user){
+    return res.status(400).send("400 - Not valid user")
+  }
+
+  const {shortURL} = req.params
+  const urlObject = urlDatabase[shortURL]
+  if (! urlObject ){
+    return res.status(400).send("400 - There is no URL object with this ID")
+  }
+
+  const urlBelongsToUser = urlObject.user_id === user.id 
+  if (!urlBelongsToUser){
+    return res.status(400).send("400 - You do not own this URL")
+  }
+
+  const {longURL} = req.body
+  if (!longURL){
+    return res.status(400).send("400 - You need to pass a longURL")
+  }
+
+  urlObject.longURL = longURL   
   res.redirect("/urls")
+
+  // urlDatabase[req.params.shortURL].longURL = req.body["longURL"]
+  // console.log(urlDatabase)
 });
+
+
+// app.post("/urls/:shortURL/edit", (req, res) => {
+//   const user_id = req.cookies["user_id"]
+//   if (user_id === urlDatabase[req.params.shortURL][user_id]) {
+//     urlDatabase[req.params.shortURL].longURL = req.body["longURL"]
+//     console.log(urlDatabase)
+//     res.redirect("/urls")
+//   }
+//   else {
+//     return res.status(403).send("403 - Sorry, user already exists!")
+//   }
+// });
 
 app.post("/login", (req, res) => {
 
@@ -164,9 +286,14 @@ app.get("/users.json", (req, res) => {
 app.post("/register", (req, res) => {
 
   // extract the user info from the incoming form using req.body
-  const email = req.body.email;
-  const password = req.body.password;
-  const name = req.body.name;
+  
+  // const email = req.body.email;
+  // const password = req.body.password;
+  // const name = req.body.name;
+  const {email, password, name} = req.body // Exactly the same as the previous three lines. This is called destructuring an object.
+
+  
+
 
   //validation. We need to ensure that the new user is not already in the database. Since userID is not created yet, we /
   //have to use email for this step.
@@ -174,9 +301,9 @@ app.post("/register", (req, res) => {
 
   for (let userId in userDatabase) {
     const user = userDatabase[userId] // retrieve the value
-    if (!email || !password || !name) {
-      return res.status(403).send("403 - All fields cannot be empty")
-    }
+    // if (!email || !password || !name) {
+    //   return res.status(403).send("403 - All fields cannot be empty")
+    // }  No longer required since we added required to all the form inputs.
 
 
     if (user.email === email) {
