@@ -1,9 +1,13 @@
 
+const arrayToObject = function(arr) {
+  const arrayToObject = function(arr) {
+    let result_obj = {}
+    for (let item of arr){
+      result_obj[item[0]] = item[1]
+    }
+    return result_obj
+  };
+  
+};
 
-const mark = Math.random().toString(36).substr(2, 8)
-const userId = Math.floor(Math.random() *2000) + 1
-console.log(mark)
-
-console.log(userId)
-
-
+console.log(arrayToObject([['a', 1], ['b', 2], ['c', 3]]))
